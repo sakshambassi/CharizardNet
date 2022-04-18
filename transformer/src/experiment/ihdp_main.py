@@ -15,9 +15,12 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard, ReduceL
 from idhp_data import *
 
 
-def _split_output(yt_hat, t, y, y_scaler, x):
-    q_t0 = y_scaler.inverse_transform(yt_hat[:, 0].reshape(-1, 1).copy())
-    q_t1 = y_scaler.inverse_transform(yt_hat[:, 1].reshape(-1, 1).copy())
+def _split_output(yt_hat, t, y, x):
+    # q_t0 = y_scaler.inverse_transform(yt_hat[:, 0].reshape(-1, 1).copy())
+    # q_t1 = y_scaler.inverse_transform(yt_hat[:, 1].reshape(-1, 1).copy())
+
+    q_t0 = yt_hat[:, 0]
+    q_t1 = yt_hat[:, 1]
     g = yt_hat[:, 2].copy()
 
     if yt_hat.shape[1] == 4:
@@ -25,7 +28,7 @@ def _split_output(yt_hat, t, y, y_scaler, x):
     else:
         eps = np.zeros_like(yt_hat[:, 2])
 
-    y = y_scaler.inverse_transform(y.copy())
+    # y = y_scaler.inverse_transform(y.copy())
     var = "average propensity for treated: {} and untreated: {}".format(g[t.squeeze() == 1.].mean(),
                                                                         g[t.squeeze() == 0.].mean())
     print(var)
@@ -39,14 +42,18 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
     verbose = 0
     y_train = y_train.reshape(-1, 1)
     y_test = y_test.reshape(-1, 1)
+    print(y_test)
     x_train = x_train.reshape(x_train.shape[0], -1)
     x_test = x_test.reshape(x_test.shape[0], -1)
     t_train = t_train.reshape(t_train.shape[0], -1)
     t_test = t_test.reshape(t_test.shape[0], -1)
 
-    y_scaler = StandardScaler().fit(y_train)
-    y_train = y_scaler.transform(y_train)
-    y_test = y_scaler.transform(y_test)
+    # y_scaler = StandardScaler().fit(y_train)
+    # y_train = y_scaler.transform(y_train)
+    # y_test = y_scaler.transform(y_test)
+
+    y_train = y_train.astype('float32')
+    y_test = y_test.astype('float32')
 
     print("I am here making dragonnet")
     dragonnet = make_dragonnet(x_train.shape[1], 0.01)
@@ -65,7 +72,7 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
 
     dragonnet.compile(
         optimizer=Adam(learning_rate=1e-3),
-        loss=loss, metrics=metrics)
+        loss=loss, metrics=metrics, run_eagerly=True)
 
     adam_callbacks = [
         TerminateOnNaN(),
@@ -100,11 +107,16 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
     print("***************************** elapsed_time is: ", elapsed_time)
 
     yt_hat_test = dragonnet.predict(x_test)
+    ## yt_hat_test consists of these values: y0_predictions, y1_predictions, t_predictions, epsilons
     yt_hat_train = dragonnet.predict(x_train)
 
-    test_outputs = _split_output(yt_hat_test, t_test, y_test, y_scaler, x_test)
-    train_outputs = _split_output(yt_hat_train, t_train, y_train, y_scaler, x_train)
+    test_outputs = _split_output(yt_hat_test, t_test, y_test, x_test)
+    train_outputs = _split_output(yt_hat_train, t_train, y_train, x_train)
     K.clear_session()
+
+    print(f"y_test : {y_test}")
+    print(f"t_test : {t_test}")
+    print(f"yt_hat_test : {yt_hat_test}")
 
     return test_outputs, train_outputs
 
@@ -119,17 +131,23 @@ def create_targets(y):
     return np.array([int(is_prime(value)) for value in y])
 
 
-def run_mnist(output_dir, dragon, knob_loss=dragonnet_loss_binarycross, ratio=1.):
+def run_mnist(output_dir, dragon, knob_loss=mnist_dragonnet_loss_binarycross, ratio=1.):
     print("the dragon is {}".format(dragon))
 
     mnist = tf.keras.datasets.mnist
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
+
+    # TODO: need to remove this after test
+    x_train = x_train[:10]
+    y_train = y_train[:10]
+    ##
+
     t_train = create_treatment_values(y_train)
     t_test = create_treatment_values(y_test)
     y_train = create_targets(y_train)
     y_test = create_targets(y_test)
 
-    for is_targeted_regularization in [True, False]:
+    for is_targeted_regularization in [False]:
         print("Is targeted regularization: {}".format(is_targeted_regularization))
         test_outputs, train_output = train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
                                                                targeted_regularization=is_targeted_regularization,
