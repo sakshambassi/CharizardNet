@@ -131,34 +131,37 @@ def create_targets(y):
     return np.array([int(is_prime(value)) for value in y])
 
 
-def run_mnist(output_dir, dragon, knob_loss=mnist_dragonnet_loss_binarycross, ratio=1.):
-    print("the dragon is {}".format(dragon))
-
+def run_mnist(args: argparse, output_dir: str):
     mnist = tf.keras.datasets.mnist
     (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
-    # TODO: need to remove this after test
-    x_train = x_train[:10]
-    y_train = y_train[:10]
-    ##
-
-    t_train = create_treatment_values(y_train)
-    t_test = create_treatment_values(y_test)
     y_train = create_targets(y_train)
     y_test = create_targets(y_test)
 
-    for is_targeted_regularization in [False]:
+    if args.dry_run:
+        x_train = x_train[:10]
+        y_train = y_train[:10]
+        x_test = x_test[:10]
+        y_test = y_test[:10]
+
+    t_train = create_treatment_values(y_train)
+    t_test = create_treatment_values(y_test)
+
+    for is_targeted_regularization in [True, False]:
         print("Is targeted regularization: {}".format(is_targeted_regularization))
         test_outputs, train_output = train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
                                                                targeted_regularization=is_targeted_regularization,
                                                                output_dir=output_dir,
-                                                               knob_loss=knob_loss, ratio=ratio, dragon=dragon,
-                                                               val_split=0.2, batch_size=64)
+                                                               knob_loss=mnist_dragonnet_loss_binarycross,
+                                                               ratio=args.ratio,
+                                                               dragon=args.knob,
+                                                               val_split=0.2,
+                                                               batch_size=args.batch_size)
 
 
 def turn_knob(args: argparse):
     output_dir = os.path.join(args.output_base_dir, args.knob)
-    run_mnist(output_dir=output_dir, dragon='dragonnet')
+    run_mnist(args, output_dir)
 
 
 def main():
@@ -166,6 +169,9 @@ def main():
     parser.add_argument('--knob', type=str, default='dragonnet')
     parser.add_argument('--data-base-dir', type=str, default="../dat/ihdp/csv")
     parser.add_argument('--output-base-dir', type=str, default="../result/ihdp")
+    parser.add_argument('--dry-run', type=bool, default=True)
+    parser.add_argument('--ratio', type=float, default=1.)
+    parser.add_argument('--batch-size', type=int, default=64)
 
     args = parser.parse_args()
     turn_knob(args)
