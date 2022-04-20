@@ -5,7 +5,7 @@ from keras.metrics import binary_accuracy
 from keras.layers import Input, Dense, Concatenate, BatchNormalization, Dropout
 from keras.models import Model
 from keras import regularizers
-
+import numpy as np
 
 def binary_classification_loss(concat_true, concat_pred):
     t_true = concat_true[:, 1]
@@ -28,10 +28,45 @@ def regression_loss(concat_true, concat_pred):
 
     return loss0 + loss1
 
+def y_binary_classification_loss(concat_true, concat_pred):
+    """
+    Classification loss on y - used for MNIST causal effect
+    """
+
+    y_true = concat_true[:, 0]
+    t_true = concat_true[:, 1]
+
+    y0_pred = concat_pred[:, 0]
+    y1_pred = concat_pred[:, 1]
+
+    # y0_pred = tf.dtypes.cast(y0_pred, tf.int64)
+    # y1_pred = tf.dtypes.cast(y1_pred, tf.int64)
+
+    y_pred = t_true * y1_pred + (1 - t_true) * y0_pred
+
+    # y_pred = tf.dtypes.cast(y_pred, tf.int64)
+    try:
+        y_pred = (y_pred.numpy() + 0.001) / 1.002
+        y_true = y_true.numpy()
+        y_true = y_true.astype('float32')
+        y_pred = y_pred.astype('float32')
+        y_loss = np.sum(K.binary_crossentropy(y_true, y_pred))
+    except AttributeError:
+        y_pred = (y_pred + 0.001) / 1.002
+        # y_true = y_true.numpy()
+        # y_true = y_true.astype('float32')
+        # y_pred = y_pred.astype('float32')
+        y_loss = tf.reduce_sum(K.binary_crossentropy(y_true, y_pred))
+    return y_loss
 
 def dragonnet_loss_binarycross(concat_true, concat_pred):
     return regression_loss(concat_true, concat_pred) + binary_classification_loss(concat_true, concat_pred)
 
+def mnist_dragonnet_loss_binarycross(concat_true, concat_pred):
+    """
+    Total Classification loss - used for MNIST causal effect
+    """
+    return y_binary_classification_loss(concat_true, concat_pred) + binary_classification_loss(concat_true, concat_pred)
 
 def treatment_accuracy(concat_true, concat_pred):
     t_true = concat_true[:, 1]
@@ -119,12 +154,10 @@ def make_dragonnet(input_dim, reg_l2):
     y1_hidden = Dense(units=100, activation='elu', kernel_regularizer=regularizers.l2(reg_l2))(y1_hidden)
 
     # third
-    y0_predictions = Dense(units=1, activation='softmax', kernel_regularizer=regularizers.l2(reg_l2),
-                           name='y0_predictions')(
-        y0_hidden)
-    y1_predictions = Dense(units=1, activation='softmax', kernel_regularizer=regularizers.l2(reg_l2),
-                           name='y1_predictions')(
-        y1_hidden)
+    y0_predictions = Dense(units=1, activation='sigmoid', kernel_regularizer=regularizers.l2(reg_l2),
+                           name='y0_predictions')(y0_hidden)
+    y1_predictions = Dense(units=1, activation='sigmoid', kernel_regularizer=regularizers.l2(reg_l2),
+                           name='y1_predictions')(y1_hidden)
 
     dl = EpsilonLayer()
     epsilons = dl(t_predictions, name='epsilon')
