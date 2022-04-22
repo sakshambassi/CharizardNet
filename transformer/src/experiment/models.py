@@ -7,6 +7,7 @@ from keras.models import Model
 from keras import regularizers
 import numpy as np
 
+
 def binary_classification_loss(concat_true, concat_pred):
     t_true = concat_true[:, 1]
     t_pred = concat_pred[:, 2]
@@ -27,6 +28,7 @@ def regression_loss(concat_true, concat_pred):
     loss1 = tf.reduce_sum(t_true * tf.square(y_true - y1_pred))
 
     return loss0 + loss1
+
 
 def y_binary_classification_loss(concat_true, concat_pred):
     """
@@ -59,14 +61,17 @@ def y_binary_classification_loss(concat_true, concat_pred):
         y_loss = tf.reduce_sum(K.binary_crossentropy(y_true, y_pred))
     return y_loss
 
+
 def dragonnet_loss_binarycross(concat_true, concat_pred):
     return regression_loss(concat_true, concat_pred) + binary_classification_loss(concat_true, concat_pred)
+
 
 def mnist_dragonnet_loss_binarycross(concat_true, concat_pred):
     """
     Total Classification loss - used for MNIST causal effect
     """
     return y_binary_classification_loss(concat_true, concat_pred) + binary_classification_loss(concat_true, concat_pred)
+
 
 def treatment_accuracy(concat_true, concat_pred):
     t_true = concat_true[:, 1]
@@ -127,7 +132,7 @@ def make_tarreg_loss(ratio=1., dragonnet_loss=dragonnet_loss_binarycross):
     return tarreg_ATE_unbounded_domain_loss
 
 
-def make_dragonnet(input_dim, reg_l2):
+def make_dragonnet(encoder, input_dims, reg_l2):
     """
     Neural net predictive model. The dragon has three heads.
     :param input_dim:
@@ -136,12 +141,8 @@ def make_dragonnet(input_dim, reg_l2):
     """
     t_l1 = 0.
     t_l2 = reg_l2
-    inputs = Input(shape=(input_dim,), name='input')
 
-    # representation
-    x = Dense(units=200, activation='elu', kernel_initializer='RandomNormal')(inputs)
-    x = Dense(units=200, activation='elu', kernel_initializer='RandomNormal')(x)
-    x = Dense(units=200, activation='elu', kernel_initializer='RandomNormal')(x)
+    inputs, x = encoder.encode(input_dims)
 
     t_predictions = Dense(units=1, activation='sigmoid')(x)
 

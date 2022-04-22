@@ -13,6 +13,26 @@ import keras.backend as K
 from tensorflow.keras.optimizers import RMSprop, SGD, Adam
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard, ReduceLROnPlateau, TerminateOnNaN
 from idhp_data import *
+from tensorflow.python.ops.numpy_ops import np_config
+np_config.enable_numpy_behavior()
+from encoder import *
+
+
+def pre_treatment_bias(q_t0, y, t):
+    '''
+    bias = E[Y0 | T = 1] - E[Y0 | T = 0]
+         = E[counter factuals/predicted y/q_t0 when T = 1] - E[y when t = 0]
+    '''
+    y0_given_t1 = list()
+    y0_given_t0 = list()
+
+    for index, treatment in enumerate(t):
+        if treatment == 1:
+            y0_given_t1.append(q_t0[index])
+        else:
+            y0_given_t0.append(y[index])
+
+    return np.array(y0_given_t1).mean() - np.array(y0_given_t0).mean()
 
 
 def _split_output(yt_hat, t, y, x):
@@ -29,24 +49,30 @@ def _split_output(yt_hat, t, y, x):
         eps = np.zeros_like(yt_hat[:, 2])
 
     # y = y_scaler.inverse_transform(y.copy())
-    var = "average propensity for treated: {} and untreated: {}".format(g[t.squeeze() == 1.].mean(),
-                                                                        g[t.squeeze() == 0.].mean())
+    bias = pre_treatment_bias(q_t0, y, t)
+    print(f"pre treatment bias = {bias}")
+
+    # had to change this since the tensors have now become eager tensors and previous methods dont work
+    var = "average propensity for treated: {} and untreated: {}".format(
+        tf.gather(g, tf.where(tf.squeeze(t) == 1.)).mean(),
+        tf.gather(g, tf.where(tf.squeeze(t) == 0)).mean())
     print(var)
 
     return {'q_t0': q_t0, 'q_t1': q_t1, 'g': g, 't': t, 'y': y, 'x': x, 'eps': eps}
 
 
-def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test, targeted_regularization=True,
+def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test, encoder, targeted_regularization=True,
                               output_dir='',
                               knob_loss=dragonnet_loss_binarycross, ratio=1., dragon='', val_split=0.2, batch_size=64):
     verbose = 0
     y_train = y_train.reshape(-1, 1)
     y_test = y_test.reshape(-1, 1)
-    print(y_test)
-    x_train = x_train.reshape(x_train.shape[0], -1)
-    x_test = x_test.reshape(x_test.shape[0], -1)
+    x_train = encoder.reshape_input(x_train)
+    x_test = encoder.reshape_input(x_test)
     t_train = t_train.reshape(t_train.shape[0], -1)
     t_test = t_test.reshape(t_test.shape[0], -1)
+
+    input_dims = encoder.input_dims(x_train)
 
     # y_scaler = StandardScaler().fit(y_train)
     # y_train = y_scaler.transform(y_train)
@@ -56,7 +82,9 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
     y_test = y_test.astype('float32')
 
     print("I am here making dragonnet")
-    dragonnet = make_dragonnet(x_train.shape[1], 0.01)
+
+
+    dragonnet = make_dragonnet(encoder, input_dims, 0.01)
 
     metrics = [regression_loss, binary_classification_loss, treatment_accuracy, track_epsilon]
 
@@ -121,9 +149,9 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
     return test_outputs, train_outputs
 
 
-def create_treatment_values(y):
-    is_odd = lambda value: value % 2
-    return np.array([is_odd(value) for value in y])
+def create_treatment_values(x):
+    value = tf.compat.v1.distributions.Bernoulli(probs=0.5).sample(sample_shape=x.shape)
+    return value
 
 
 def create_targets(y):
@@ -147,9 +175,12 @@ def run_mnist(args: argparse, output_dir: str):
     t_train = create_treatment_values(y_train)
     t_test = create_treatment_values(y_test)
 
+    encoder = get_encoder(args.encoder)
+
     for is_targeted_regularization in [True, False]:
         print("Is targeted regularization: {}".format(is_targeted_regularization))
         test_outputs, train_output = train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
+                                                               encoder = encoder,
                                                                targeted_regularization=is_targeted_regularization,
                                                                output_dir=output_dir,
                                                                knob_loss=mnist_dragonnet_loss_binarycross,
@@ -158,6 +189,11 @@ def run_mnist(args: argparse, output_dir: str):
                                                                val_split=0.2,
                                                                batch_size=args.batch_size)
 
+# TODO: Add plug for ResNet and Transformer
+def get_encoder(encoder_type: str):
+    if encoder_type == "fc":
+        return FcEncoder()
+    return FcEncoder()
 
 def turn_knob(args: argparse):
     output_dir = os.path.join(args.output_base_dir, args.knob)
@@ -172,6 +208,7 @@ def main():
     parser.add_argument('--dry-run', type=bool, default=True)
     parser.add_argument('--ratio', type=float, default=1.)
     parser.add_argument('--batch-size', type=int, default=64)
+    parser.add_argument('--encoder', type=str, default='fc')
 
     args = parser.parse_args()
     turn_knob(args)
