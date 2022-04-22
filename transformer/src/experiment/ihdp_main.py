@@ -14,6 +14,7 @@ from tensorflow.keras.optimizers import RMSprop, SGD, Adam
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard, ReduceLROnPlateau, TerminateOnNaN
 from idhp_data import *
 from tensorflow.python.ops.numpy_ops import np_config
+
 np_config.enable_numpy_behavior()
 from encoder import *
 
@@ -82,7 +83,6 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
     y_test = y_test.astype('float32')
 
     print("I am here making dragonnet")
-
 
     dragonnet = make_dragonnet(encoder, input_dims, 0.01)
 
@@ -180,7 +180,7 @@ def run_mnist(args: argparse, output_dir: str):
     for is_targeted_regularization in [True, False]:
         print("Is targeted regularization: {}".format(is_targeted_regularization))
         test_outputs, train_output = train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
-                                                               encoder = encoder,
+                                                               encoder=encoder,
                                                                targeted_regularization=is_targeted_regularization,
                                                                output_dir=output_dir,
                                                                knob_loss=mnist_dragonnet_loss_binarycross,
@@ -189,11 +189,14 @@ def run_mnist(args: argparse, output_dir: str):
                                                                val_split=0.2,
                                                                batch_size=args.batch_size)
 
+
 # TODO: Add plug for ResNet and Transformer
 def get_encoder(encoder_type: str):
-    if encoder_type == "fc":
+    if encoder_type == "resnet":
+        return ResnetEncoder()
+    else:
         return FcEncoder()
-    return FcEncoder()
+
 
 def turn_knob(args: argparse):
     output_dir = os.path.join(args.output_base_dir, args.knob)
@@ -208,6 +211,7 @@ def main():
     parser.add_argument('--dry-run', type=bool, default=True)
     parser.add_argument('--ratio', type=float, default=1.)
     parser.add_argument('--batch-size', type=int, default=64)
+    # Possible values of encoder are 'fc', 'resnet'
     parser.add_argument('--encoder', type=str, default='fc')
 
     args = parser.parse_args()
