@@ -15,6 +15,9 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard, ReduceL
 from idhp_data import *
 from tensorflow.python.ops.numpy_ops import np_config
 
+from noisenet import NoiseNet
+import torch
+
 np_config.enable_numpy_behavior()
 from encoder import *
 
@@ -150,8 +153,20 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
 
 
 def create_treatment_values(x):
-    value = tf.compat.v1.distributions.Bernoulli(probs=0.5).sample(sample_shape=x.shape)
+    # value = tf.compat.v1.distributions.Bernoulli(probs=0.5).sample(sample_shape=x.shape)
+    # return value
+    network = NoiseNet()
+    network.load_state_dict(torch.load('/model.pth'))
+    network.eval()
+    input = torch.from_numpy(x.numpy()).float()
+    output = network(input)
+    log_outs, _ = torch.max(output,dim=1)
+    log_outs = abs(log_outs)
+    log_outs = log_outs/2
+    log_outs = log_outs.detach().numpy()
+    value = tf.compat.v1.distributions.Bernoulli(probs=0.5).sample(sample_shape=log_outs.shape)
     return value
+
 
 
 def create_targets(y):
