@@ -155,9 +155,17 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
 def create_treatment_values(x):
     # value = tf.compat.v1.distributions.Bernoulli(probs=0.5).sample(sample_shape=x.shape)
     # return value
+
+    """
+
+    """
     network = NoiseNet()
     network.load_state_dict(torch.load('/model.pth'))
     network.eval()
+
+    # x should be of shape torch.Size([_, 1, 28, 28])
+    print(f'\n\nx.numpy().shape(): {x.numpy().shape()}')
+    
     input = torch.from_numpy(x.numpy()).float()
     output = network(input)
     log_outs, _ = torch.max(output,dim=1)
