@@ -123,7 +123,8 @@ def make_tarreg_loss(ratio=1., dragonnet_loss=dragonnet_loss_binarycross):
         h = t_true / t_pred - (1 - t_true) / (1 - t_pred)
 
         y_pert = y_pred + epsilons * h
-        targeted_regularization = tf.reduce_sum(tf.square(y_true - y_pert))
+        # targeted_regularization = tf.reduce_sum(tf.square(y_true - y_pert))
+        targeted_regularization = tf.reduce_sum(K.binary_crossentropy(y_true, y_pert))
 
         # final
         loss = vanilla_loss + ratio * targeted_regularization

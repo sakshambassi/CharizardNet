@@ -223,7 +223,6 @@ def run_mnist(args: argparse, output_dir: str):
                                                                dragon=args.knob,
                                                                val_split=0.2,
                                                                batch_size=args.batch_size)
-        get_accuracy()
 
 
 # TODO: Add plug for ResNet and Transformer
