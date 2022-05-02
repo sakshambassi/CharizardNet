@@ -1,8 +1,9 @@
+*.slurm
+*.pyc
 *.DS_Store
 *.ipynb_checkpoints
 *.xml
 *.npz
 *.iml
 *.sh
-*.pyc
 *.out
