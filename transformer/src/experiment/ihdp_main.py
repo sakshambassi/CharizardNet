@@ -14,12 +14,19 @@ from tensorflow.keras.optimizers import RMSprop, SGD, Adam
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard, ReduceLROnPlateau, TerminateOnNaN
 from idhp_data import *
 from tensorflow.python.ops.numpy_ops import np_config
+import sklearn
 
 from noisenet import NoiseNet
 import torch
 
 np_config.enable_numpy_behavior()
 from encoder import *
+
+def get_accuracy(t, y_0, y_1, y_true):
+    t = tf.squeeze(t)
+    y_pred = round(t * y_1 + (1 - t) * y_0)
+    acc = sklearn.metrics.accuracy_score(y_true, y_pred)
+    return acc
 
 
 def pre_treatment_bias(q_t0, y, t):
@@ -61,6 +68,9 @@ def _split_output(yt_hat, t, y, x):
         tf.gather(g, tf.where(tf.squeeze(t) == 1.)).mean(),
         tf.gather(g, tf.where(tf.squeeze(t) == 0)).mean())
     print(var)
+
+    acc = get_accuracy(t, q_t0, q_t1, y)
+    print(f"Accuracy: {acc}")
 
     return {'q_t0': q_t0, 'q_t1': q_t1, 'g': g, 't': t, 'y': y, 'x': x, 'eps': eps}
 
@@ -160,19 +170,21 @@ def create_treatment_values(x):
 
     """
     network = NoiseNet()
-    network.load_state_dict(torch.load('/model.pth'))
+    network.load_state_dict(torch.load('model.pth'))
     network.eval()
 
     # x should be of shape torch.Size([_, 1, 28, 28])
-    print(f'\n\nx.numpy().shape(): {x.numpy().shape()}')
+    print(f'\n\nx.numpy().shape(): {x.shape}')
     
-    input = torch.from_numpy(x.numpy()).float()
+    input = torch.from_numpy(x).float()
+    input = input.unsqueeze(1)
     output = network(input)
     log_outs, _ = torch.max(output,dim=1)
     log_outs = abs(log_outs)
     log_outs = log_outs/2
     log_outs = log_outs.detach().numpy()
-    value = tf.compat.v1.distributions.Bernoulli(probs=0.5).sample(sample_shape=log_outs.shape)
+    value = tf.compat.v1.distributions.Bernoulli(probs=log_outs).sample(sample_shape=1)
+    value = tf.squeeze(value)
     return value
 
 
@@ -195,8 +207,8 @@ def run_mnist(args: argparse, output_dir: str):
         x_test = x_test[:10]
         y_test = y_test[:10]
 
-    t_train = create_treatment_values(y_train)
-    t_test = create_treatment_values(y_test)
+    t_train = create_treatment_values(x_train)
+    t_test = create_treatment_values(x_test)
 
     encoder = get_encoder(args.encoder)
 
@@ -211,6 +223,7 @@ def run_mnist(args: argparse, output_dir: str):
                                                                dragon=args.knob,
                                                                val_split=0.2,
                                                                batch_size=args.batch_size)
+        get_accuracy()
 
 
 # TODO: Add plug for ResNet and Transformer
