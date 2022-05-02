@@ -1,5 +1,6 @@
 from keras.layers import Dense, Input, Flatten
 import tensorflow as tf
+from ViT import create_vit_encoder
 
 class Encoder:
     def __init__(self):
@@ -51,6 +52,18 @@ class ResnetEncoder(Encoder):
         # x.shape => (batch_size, 32, 32, 3)
         x = tf.repeat(x, 3, axis=3)
         return x
+
+    def input_dims(self, x):
+        return (x.shape[1:])
+
+class ViTEncoder(Encoder):
+    """ViTEncoder"""
+    def __init__(self, arg=None):
+        pass
+
+    def encode(self, inputs_dims):
+        model, inputs, representation = create_vit_encoder()
+        return inputs, representation
 
     def input_dims(self, x):
         return (x.shape[1:])
