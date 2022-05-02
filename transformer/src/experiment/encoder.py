@@ -32,8 +32,6 @@ class FcEncoder(Encoder):
 
 
 class ResnetEncoder(Encoder):
-    def __init__(self):
-        pass
 
     def encode(self, inputs_dims):
         base_model = tf.keras.applications.ResNet50(weights='imagenet', include_top=False, input_shape=(32, 32, 3))

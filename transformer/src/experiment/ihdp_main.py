@@ -15,6 +15,7 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard, ReduceL
 from idhp_data import *
 from tensorflow.python.ops.numpy_ops import np_config
 import sklearn
+import time
 
 from noisenet import NoiseNet
 import torch
@@ -42,8 +43,10 @@ def pre_treatment_bias(q_t0, y, t):
             y0_given_t1.append(q_t0[index])
         else:
             y0_given_t0.append(y[index])
-
-    return np.array(y0_given_t1).mean() - np.array(y0_given_t0).mean()
+    mean_y0_given_t1 = np.array(y0_given_t1).mean()
+    mean_y0_given_t0 = np.array(y0_given_t0).mean()
+    return (0 if np.isnan(mean_y0_given_t1) else mean_y0_given_t1) -\
+           (0 if np.isnan(mean_y0_given_t0) else mean_y0_given_t0)
 
 
 def _split_output(yt_hat, t, y, x):
@@ -75,9 +78,15 @@ def _split_output(yt_hat, t, y, x):
     return {'q_t0': q_t0, 'q_t1': q_t1, 'g': g, 't': t, 'y': y, 'x': x, 'eps': eps}
 
 
-def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test, encoder, targeted_regularization=True,
-                              output_dir='',
-                              knob_loss=dragonnet_loss_binarycross, ratio=1., dragon='', val_split=0.2, batch_size=64):
+def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test, encoder, args: argparse,
+                              targeted_regularization=True, output_dir='',
+                              knob_loss=dragonnet_loss_binarycross, val_split=0.2):
+
+    batch_size = args.batch_size
+    ratio = args.ratio
+    epochs_adam = args.epochs_adam
+    epochs_sgd = args.epochs_sgd
+
     verbose = 0
     y_train = y_train.reshape(-1, 1)
     y_test = y_test.reshape(-1, 1)
@@ -95,10 +104,9 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
     y_train = y_train.astype('float32')
     y_test = y_test.astype('float32')
 
-    print("I am here making dragonnet")
+    # print("I am here making dragonnet")
 
     dragonnet = make_dragonnet(encoder, input_dims, 0.01)
-
     metrics = [regression_loss, binary_classification_loss, treatment_accuracy, track_epsilon]
 
     if targeted_regularization:
@@ -108,7 +116,6 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
 
     yt_train = np.concatenate([y_train, t_train], 1)
 
-    import time
     start_time = time.time()
 
     dragonnet.compile(
@@ -124,7 +131,7 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
 
     dragonnet.fit(x_train, yt_train, callbacks=adam_callbacks,
                   validation_split=val_split,
-                  epochs=100,
+                  epochs=epochs_adam,
                   batch_size=batch_size, verbose=verbose)
 
     sgd_callbacks = [
@@ -141,7 +148,7 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
 
     dragonnet.fit(x_train, yt_train, callbacks=sgd_callbacks,
                   validation_split=val_split,
-                  epochs=300,
+                  epochs=epochs_sgd,
                   batch_size=batch_size, verbose=verbose)
 
     elapsed_time = time.time() - start_time
@@ -155,9 +162,9 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
     train_outputs = _split_output(yt_hat_train, t_train, y_train, x_train)
     K.clear_session()
 
-    print(f"y_test : {y_test}")
-    print(f"t_test : {t_test}")
-    print(f"yt_hat_test : {yt_hat_test}")
+    # print(f"y_test : {y_test}")
+    # print(f"t_test : {t_test}")
+    # print(f"yt_hat_test : {yt_hat_test}")
 
     return test_outputs, train_outputs
 
@@ -174,8 +181,8 @@ def create_treatment_values(x):
     network.eval()
 
     # x should be of shape torch.Size([_, 1, 28, 28])
-    print(f'\n\nx.numpy().shape(): {x.shape}')
-    
+    # print(f'\n\nx.numpy().shape(): {x.shape}')
+
     input = torch.from_numpy(x).float()
     input = input.unsqueeze(1)
     output = network(input)
@@ -215,20 +222,18 @@ def run_mnist(args: argparse, output_dir: str):
     for is_targeted_regularization in [True, False]:
         print("Is targeted regularization: {}".format(is_targeted_regularization))
         test_outputs, train_output = train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
+                                                               args=args,
                                                                encoder=encoder,
                                                                targeted_regularization=is_targeted_regularization,
                                                                output_dir=output_dir,
                                                                knob_loss=mnist_dragonnet_loss_binarycross,
-                                                               ratio=args.ratio,
-                                                               dragon=args.knob,
-                                                               val_split=0.2,
-                                                               batch_size=args.batch_size)
+                                                               val_split=0.2)
 
-
-# TODO: Add plug for ResNet and Transformer
 def get_encoder(encoder_type: str):
     if encoder_type == "resnet":
         return ResnetEncoder()
+    elif encoder_type == "vit":
+        return ViTEncoder()
     else:
         return FcEncoder()
 
@@ -240,14 +245,17 @@ def turn_knob(args: argparse):
 
 def main():
     parser = argparse.ArgumentParser()
+    # original code has {epochs_adam: 100, epochs_sgd: 300, batch_size: 64}
     parser.add_argument('--knob', type=str, default='dragonnet')
     parser.add_argument('--data-base-dir', type=str, default="../dat/ihdp/csv")
     parser.add_argument('--output-base-dir', type=str, default="../result/ihdp")
     parser.add_argument('--dry-run', type=bool, default=True)
     parser.add_argument('--ratio', type=float, default=1.)
-    parser.add_argument('--batch-size', type=int, default=64)
-    # Possible values of encoder are 'fc', 'resnet'
-    parser.add_argument('--encoder', type=str, default='fc')
+    parser.add_argument('--batch-size', type=int, default=32)
+    parser.add_argument('--epochs-adam', type=int, default=100)
+    parser.add_argument('--epochs-sgd', type=int, default=300)
+    # Possible values of encoder are 'fc', 'resnet', 'vit'
+    parser.add_argument('--encoder', type=str, default='resnet')
 
     args = parser.parse_args()
     turn_knob(args)
