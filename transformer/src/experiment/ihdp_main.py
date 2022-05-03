@@ -82,6 +82,7 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
                               targeted_regularization=True, output_dir='',
                               knob_loss=dragonnet_loss_binarycross, val_split=0.2):
 
+
     batch_size = args.batch_size
     ratio = args.ratio
     epochs_adam = args.epochs_adam
@@ -94,6 +95,14 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
     x_test = encoder.reshape_input(x_test)
     t_train = t_train.reshape(t_train.shape[0], -1)
     t_test = t_test.reshape(t_test.shape[0], -1)
+
+    # if args.greene == True:
+    #     y_train = y_train.to_device(device)
+    #     y_test = y_test.to_device(device)
+    #     x_train = x_train.to_device(device)
+    #     x_test = x_test.to_device(device)
+    #     t_train = t_train.to_device(device)
+    #     t_test = t_test.to_device(device)
 
     input_dims = encoder.input_dims(x_train)
 
@@ -121,6 +130,9 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
     dragonnet.compile(
         optimizer=Adam(learning_rate=1e-3),
         loss=loss, metrics=metrics, run_eagerly=True)
+
+    # if args.greene == True:
+    #     dragonnet = dragonnet.to_device(device)
 
     adam_callbacks = [
         TerminateOnNaN(),
@@ -209,10 +221,10 @@ def run_mnist(args: argparse, output_dir: str):
     y_test = create_targets(y_test)
 
     if args.dry_run:
-        x_train = x_train[:10]
-        y_train = y_train[:10]
-        x_test = x_test[:10]
-        y_test = y_test[:10]
+        x_train = x_train[:1000]
+        y_train = y_train[:1000]
+        x_test = x_test[:1000]
+        y_test = y_test[:1000]
 
     t_train = create_treatment_values(x_train)
     t_test = create_treatment_values(x_test)
@@ -252,13 +264,20 @@ def main():
     parser.add_argument('--dry-run', type=bool, default=True)
     parser.add_argument('--ratio', type=float, default=1.)
     parser.add_argument('--batch-size', type=int, default=32)
-    parser.add_argument('--epochs-adam', type=int, default=100)
-    parser.add_argument('--epochs-sgd', type=int, default=300)
+    parser.add_argument('--epochs-adam', type=int, default=10)
+    parser.add_argument('--epochs-sgd', type=int, default=10)
     # Possible values of encoder are 'fc', 'resnet', 'vit'
     parser.add_argument('--encoder', type=str, default='resnet')
+    parser.add_argument('--greene', type=bool, default=True)
 
     args = parser.parse_args()
+
+    print(f'Model used: {args.encoder}')
+    print(f'Is only trained on small data? : {args.dry_run}')
+    # if args.greene == True:
+    #     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     turn_knob(args)
+
 
 
 if __name__ == '__main__':

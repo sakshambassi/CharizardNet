@@ -63,5 +63,9 @@ class ViTEncoder(Encoder):
         model, inputs, representation = create_vit_encoder()
         return inputs, representation
 
+    def reshape_input(self, x):
+        x = tf.expand_dims(x, axis=3, name=None)
+        return x
+
     def input_dims(self, x):
         return (x.shape[1:])
