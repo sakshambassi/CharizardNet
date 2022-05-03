@@ -155,6 +155,9 @@ def make_dragonnet(encoder, input_dims, reg_l2):
     y0_hidden = Dense(units=100, activation='elu', kernel_regularizer=regularizers.l2(reg_l2))(y0_hidden)
     y1_hidden = Dense(units=100, activation='elu', kernel_regularizer=regularizers.l2(reg_l2))(y1_hidden)
 
+    y0_hidden = tf.concat([y0_hidden, t_predictions], 1)
+    y1_hidden = tf.concat([y1_hidden, t_predictions], 1)
+
     # third
     y0_predictions = Dense(units=1, activation='sigmoid', kernel_regularizer=regularizers.l2(reg_l2),
                            name='y0_predictions')(y0_hidden)

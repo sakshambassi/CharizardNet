@@ -11,42 +11,16 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import keras.backend as K
 from tensorflow.keras.optimizers import RMSprop, SGD, Adam
-from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard, ReduceLROnPlateau, TerminateOnNaN
-from idhp_data import *
+from keras.callbacks import EarlyStopping, ReduceLROnPlateau, TerminateOnNaN
 from tensorflow.python.ops.numpy_ops import np_config
-import sklearn
+from metrics import *
 import time
-
 from noisenet import NoiseNet
 import torch
-
 np_config.enable_numpy_behavior()
 from encoder import *
 
-def get_accuracy(t, y_0, y_1, y_true):
-    t = tf.squeeze(t)
-    y_pred = round(t * y_1 + (1 - t) * y_0)
-    acc = sklearn.metrics.accuracy_score(y_true, y_pred)
-    return acc
 
-
-def pre_treatment_bias(q_t0, y, t):
-    '''
-    bias = E[Y0 | T = 1] - E[Y0 | T = 0]
-         = E[counter factuals/predicted y/q_t0 when T = 1] - E[y when t = 0]
-    '''
-    y0_given_t1 = list()
-    y0_given_t0 = list()
-
-    for index, treatment in enumerate(t):
-        if treatment == 1:
-            y0_given_t1.append(q_t0[index])
-        else:
-            y0_given_t0.append(y[index])
-    mean_y0_given_t1 = np.array(y0_given_t1).mean()
-    mean_y0_given_t0 = np.array(y0_given_t0).mean()
-    return (0 if np.isnan(mean_y0_given_t1) else mean_y0_given_t1) -\
-           (0 if np.isnan(mean_y0_given_t0) else mean_y0_given_t0)
 
 
 def _split_output(yt_hat, t, y, x):
@@ -74,14 +48,16 @@ def _split_output(yt_hat, t, y, x):
 
     acc = get_accuracy(t, q_t0, q_t1, y)
     print(f"Accuracy: {acc}")
-
+    ate = average_treatment_effect(q_t0, q_t1)
+    print(f"Average treatment effect: {ate}")
+    att = average_treatment_effect_on_treated(q_t0, q_t1, t)
+    print(f"Average treatment effect on treated: {att}")
     return {'q_t0': q_t0, 'q_t1': q_t1, 'g': g, 't': t, 'y': y, 'x': x, 'eps': eps}
 
 
 def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test, encoder, args: argparse,
                               targeted_regularization=True, output_dir='',
                               knob_loss=dragonnet_loss_binarycross, val_split=0.2):
-
 
     batch_size = args.batch_size
     ratio = args.ratio
@@ -197,15 +173,14 @@ def create_treatment_values(x):
 
     input = torch.from_numpy(x).float()
     input = input.unsqueeze(1)
-    output = network(input)
-    log_outs, _ = torch.max(output,dim=1)
+    output = network(input/255)
+    log_outs, _ = torch.max(output, dim=1)
     log_outs = abs(log_outs)
-    log_outs = log_outs/2
+    log_outs = log_outs / 2
     log_outs = log_outs.detach().numpy()
     value = tf.compat.v1.distributions.Bernoulli(probs=log_outs).sample(sample_shape=1)
     value = tf.squeeze(value)
     return value
-
 
 
 def create_targets(y):
@@ -221,10 +196,10 @@ def run_mnist(args: argparse, output_dir: str):
     y_test = create_targets(y_test)
 
     if args.dry_run:
-        x_train = x_train[:1000]
-        y_train = y_train[:1000]
-        x_test = x_test[:1000]
-        y_test = y_test[:1000]
+        x_train = x_train[:10]
+        y_train = y_train[:10]
+        x_test = x_test[:10]
+        y_test = y_test[:10]
 
     t_train = create_treatment_values(x_train)
     t_test = create_treatment_values(x_test)
@@ -240,6 +215,7 @@ def run_mnist(args: argparse, output_dir: str):
                                                                output_dir=output_dir,
                                                                knob_loss=mnist_dragonnet_loss_binarycross,
                                                                val_split=0.2)
+
 
 def get_encoder(encoder_type: str):
     if encoder_type == "resnet":
@@ -267,7 +243,7 @@ def main():
     parser.add_argument('--epochs-adam', type=int, default=10)
     parser.add_argument('--epochs-sgd', type=int, default=10)
     # Possible values of encoder are 'fc', 'resnet', 'vit'
-    parser.add_argument('--encoder', type=str, default='resnet')
+    parser.add_argument('--encoder', type=str, default='fc')
     parser.add_argument('--greene', type=bool, default=True)
 
     args = parser.parse_args()
