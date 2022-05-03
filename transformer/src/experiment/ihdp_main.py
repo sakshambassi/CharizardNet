@@ -173,8 +173,9 @@ def create_treatment_values(x):
 
     input = torch.from_numpy(x).float()
     input = input.unsqueeze(1)
-    output = network(input/255)
-    log_outs, _ = torch.max(output, dim=1)
+    input = input/255
+    output = network(input)
+    log_outs, _ = torch.max(output,dim=1)
     log_outs = abs(log_outs)
     log_outs = log_outs / 2
     log_outs = log_outs.detach().numpy()
@@ -196,10 +197,10 @@ def run_mnist(args: argparse, output_dir: str):
     y_test = create_targets(y_test)
 
     if args.dry_run:
-        x_train = x_train[:10]
-        y_train = y_train[:10]
-        x_test = x_test[:10]
-        y_test = y_test[:10]
+        x_train = x_train[:args.dry_run_val]
+        y_train = y_train[:args.dry_run_val]
+        x_test = x_test[:args.dry_run_val]
+        y_test = y_test[:args.dry_run_val]
 
     t_train = create_treatment_values(x_train)
     t_test = create_treatment_values(x_test)
@@ -238,6 +239,7 @@ def main():
     parser.add_argument('--data-base-dir', type=str, default="../dat/ihdp/csv")
     parser.add_argument('--output-base-dir', type=str, default="../result/ihdp")
     parser.add_argument('--dry-run', type=bool, default=True)
+    parser.add_argument('--dry-run-val', type=int, default=1000)
     parser.add_argument('--ratio', type=float, default=1.)
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--epochs-adam', type=int, default=10)
