@@ -14,16 +14,15 @@ from tensorflow.keras.optimizers import RMSprop, SGD, Adam
 
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, TerminateOnNaN
 from metrics import *
+from treatment import *
 import time
 from noisenet import NoiseNet
 import torch
-
 
 from encoder import *
 
 print("TF version is: ", tf.__version__)
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-
 
 
 def _split_output(yt_hat, t, y, x):
@@ -45,7 +44,7 @@ def _split_output(yt_hat, t, y, x):
 
     # had to change this since the tensors have now become eager tensors and previous methods dont work
     var = "average propensity for treated: {} and untreated: {}".format(
-        np.take(g, np.where(t.reshape(-1,) == 1)).mean(),
+        np.take(g, np.where(t.reshape(-1, ) == 1)).mean(),
         np.take(g, np.where(t.reshape(-1, ) == 0)).mean())
     print(var)
 
@@ -61,7 +60,6 @@ def _split_output(yt_hat, t, y, x):
 def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test, encoder, args: argparse,
                               targeted_regularization=True, output_dir='',
                               knob_loss=dragonnet_loss_binarycross, val_split=0.2):
-
     batch_size = args.batch_size
     ratio = args.ratio
     epochs_adam = args.epochs_adam
@@ -160,31 +158,13 @@ def train_and_predict_dragons(t_train, t_test, y_train, y_test, x_train, x_test,
     return test_outputs, train_outputs
 
 
-def create_treatment_values(x):
-    # value = tf.compat.v1.distributions.Bernoulli(probs=0.5).sample(sample_shape=x.shape)
-    # return value
+def create_treatment_values(x, y, treatment="noisenet"):
+    print(f"Treatment used: {treatment}")
+    if treatment == "noisenet":
+        return noisenet_treatment(x)
+    elif treatment == "odd-even":
+        return odd_even_treatment(y)
 
-    """
-
-    """
-    network = NoiseNet()
-    network.load_state_dict(torch.load('model.pth'))
-    network.eval()
-
-    # x should be of shape torch.Size([_, 1, 28, 28])
-    # print(f'\n\nx.numpy().shape(): {x.shape}')
-
-    input = torch.from_numpy(x).float()
-    input = input.unsqueeze(1)
-    input = input/255
-    output = network(input)
-    log_outs, _ = torch.max(output,dim=1)
-    log_outs = abs(log_outs)
-    log_outs = log_outs / 2
-    log_outs = log_outs.detach().numpy()
-    value = tf.compat.v1.distributions.Bernoulli(probs=log_outs).sample(sample_shape=1)
-    value = tf.squeeze(value)
-    return value.numpy()
 
 def create_targets(y):
     is_prime = lambda value: value in {2, 3, 4, 7}
@@ -193,19 +173,21 @@ def create_targets(y):
 
 def run_mnist(args: argparse, output_dir: str):
     mnist = tf.keras.datasets.mnist
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    (x_train, train_labels), (x_test, test_labels) = mnist.load_data()
 
-    y_train = create_targets(y_train)
-    y_test = create_targets(y_test)
+    y_train = create_targets(train_labels)
+    y_test = create_targets(test_labels)
 
     if args.dry_run:
+        train_labels = train_labels[:args.dry_run_val]
+        test_labels = test_labels[:args.dry_run_val]
         x_train = x_train[:args.dry_run_val]
         y_train = y_train[:args.dry_run_val]
         x_test = x_test[:args.dry_run_val]
         y_test = y_test[:args.dry_run_val]
 
-    t_train = create_treatment_values(x_train)
-    t_test = create_treatment_values(x_test)
+    t_train = create_treatment_values(x_train, train_labels, args.treatment)
+    t_test = create_treatment_values(x_test, test_labels, args.treatment)
 
     encoder = get_encoder(args.encoder)
 
@@ -244,11 +226,13 @@ def main():
     parser.add_argument('--dry-run-val', type=int, default=10000)
     parser.add_argument('--ratio', type=float, default=1.)
     parser.add_argument('--batch-size', type=int, default=32)
-    parser.add_argument('--epochs-adam', type=int, default=10)
-    parser.add_argument('--epochs-sgd', type=int, default=10)
+    parser.add_argument('--epochs-adam', type=int, default=1)
+    parser.add_argument('--epochs-sgd', type=int, default=1)
     # Possible values of encoder are 'fc', 'resnet', 'vit'
     parser.add_argument('--encoder', type=str, default='resnet')
     parser.add_argument('--greene', type=bool, default=True)
+    # Possible values of treatment are 'odd-even', 'noisenet'
+    parser.add_argument('--treatment', type=str, default="noisenet")
 
     args = parser.parse_args()
 
@@ -257,7 +241,6 @@ def main():
     # if args.greene == True:
     #     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     turn_knob(args)
-
 
 
 if __name__ == '__main__':
