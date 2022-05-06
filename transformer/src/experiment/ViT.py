@@ -30,18 +30,18 @@ def mlp(x, hidden_units, dropout_rate):
         x = layers.Dropout(dropout_rate)(x)
     return x
 
-data_augmentation = keras.Sequential(
-    [
-        layers.Normalization(),
-        layers.Resizing(image_size, image_size),
-        layers.RandomFlip("horizontal"),
-        layers.RandomRotation(factor=0.02),
-        layers.RandomZoom(
-            height_factor=0.2, width_factor=0.2
-        ),
-    ],
-    name="data_augmentation",
-)
+# data_augmentation = keras.Sequential(
+#     [
+#         layers.Normalization(),
+#         layers.Resizing(image_size, image_size),
+#         layers.RandomFlip("horizontal"),
+#         layers.RandomRotation(factor=0.02),
+#         layers.RandomZoom(
+#             height_factor=0.2, width_factor=0.2
+#         ),
+#     ],
+#     name="data_augmentation",
+# )
 
 class Patches(layers.Layer):
     def __init__(self, patch_size):
@@ -80,7 +80,7 @@ class PatchEncoder(layers.Layer):
 def create_vit_encoder():
     inputs = layers.Input(shape=input_shape)
 
-    augmented = data_augmentation(inputs)
+    # augmented = data_augmentation(inputs)
 
     patches = Patches(patch_size)(augmented)
 

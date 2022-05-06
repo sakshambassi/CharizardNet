@@ -9,15 +9,20 @@ import argparse
 import tensorflow as tf
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-import keras.backend as K
+import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import RMSprop, SGD, Adam
-from keras.callbacks import EarlyStopping, ReduceLROnPlateau, TerminateOnNaN
+
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, TerminateOnNaN
 from metrics import *
 import time
 from noisenet import NoiseNet
 import torch
+
+
 from encoder import *
 
+print("TF version is: ", tf.__version__)
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
 
 
@@ -181,7 +186,6 @@ def create_treatment_values(x):
     value = tf.squeeze(value)
     return value.numpy()
 
-
 def create_targets(y):
     is_prime = lambda value: value in {2, 3, 4, 7}
     return np.array([int(is_prime(value)) for value in y])
@@ -237,13 +241,13 @@ def main():
     parser.add_argument('--data-base-dir', type=str, default="../dat/ihdp/csv")
     parser.add_argument('--output-base-dir', type=str, default="../result/ihdp")
     parser.add_argument('--dry-run', type=bool, default=True)
-    parser.add_argument('--dry-run-val', type=int, default=1000)
+    parser.add_argument('--dry-run-val', type=int, default=10000)
     parser.add_argument('--ratio', type=float, default=1.)
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--epochs-adam', type=int, default=10)
     parser.add_argument('--epochs-sgd', type=int, default=10)
     # Possible values of encoder are 'fc', 'resnet', 'vit'
-    parser.add_argument('--encoder', type=str, default='fc')
+    parser.add_argument('--encoder', type=str, default='resnet')
     parser.add_argument('--greene', type=bool, default=True)
 
     args = parser.parse_args()
