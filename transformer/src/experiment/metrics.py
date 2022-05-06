@@ -4,8 +4,8 @@ import tensorflow as tf
 
 
 def get_accuracy(t, y_0, y_1, y_true):
-    t = tf.squeeze(t)
-    y_pred = round(t * y_1 + (1 - t) * y_0)
+    t = t.reshape(-1,)
+    y_pred = np.round(t * y_1 + (1 - t) * y_0)
     acc = sklearn.metrics.accuracy_score(y_true, y_pred)
     return acc
 

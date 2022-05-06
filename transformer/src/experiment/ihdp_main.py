@@ -12,12 +12,10 @@ from sklearn.model_selection import train_test_split
 import keras.backend as K
 from tensorflow.keras.optimizers import RMSprop, SGD, Adam
 from keras.callbacks import EarlyStopping, ReduceLROnPlateau, TerminateOnNaN
-from tensorflow.python.ops.numpy_ops import np_config
 from metrics import *
 import time
 from noisenet import NoiseNet
 import torch
-np_config.enable_numpy_behavior()
 from encoder import *
 
 
@@ -42,8 +40,8 @@ def _split_output(yt_hat, t, y, x):
 
     # had to change this since the tensors have now become eager tensors and previous methods dont work
     var = "average propensity for treated: {} and untreated: {}".format(
-        tf.gather(g, tf.where(tf.squeeze(t) == 1.)).mean(),
-        tf.gather(g, tf.where(tf.squeeze(t) == 0)).mean())
+        np.take(g, np.where(t.reshape(-1,) == 1)).mean(),
+        np.take(g, np.where(t.reshape(-1, ) == 0)).mean())
     print(var)
 
     acc = get_accuracy(t, q_t0, q_t1, y)
@@ -181,7 +179,7 @@ def create_treatment_values(x):
     log_outs = log_outs.detach().numpy()
     value = tf.compat.v1.distributions.Bernoulli(probs=log_outs).sample(sample_shape=1)
     value = tf.squeeze(value)
-    return value
+    return value.numpy()
 
 
 def create_targets(y):
