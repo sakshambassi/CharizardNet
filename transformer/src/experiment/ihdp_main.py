@@ -240,7 +240,7 @@ def main():
     parser.add_argument('--knob', type=str, default='dragonnet')
     parser.add_argument('--data-base-dir', type=str, default="../dat/ihdp/csv")
     parser.add_argument('--output-base-dir', type=str, default="../result/ihdp")
-    parser.add_argument('--dry-run', type=bool, default=True)
+    parser.add_argument('--dry-run', type=bool, default=False)
     parser.add_argument('--dry-run-val', type=int, default=10000)
     parser.add_argument('--ratio', type=float, default=1.)
     parser.add_argument('--batch-size', type=int, default=32)
