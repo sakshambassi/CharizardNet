@@ -226,13 +226,13 @@ def main():
     parser.add_argument('--dry-run-val', type=int, default=10000)
     parser.add_argument('--ratio', type=float, default=1.)
     parser.add_argument('--batch-size', type=int, default=32)
-    parser.add_argument('--epochs-adam', type=int, default=1)
-    parser.add_argument('--epochs-sgd', type=int, default=1)
+    parser.add_argument('--epochs-adam', type=int, default=100)
+    parser.add_argument('--epochs-sgd', type=int, default=300)
     # Possible values of encoder are 'fc', 'resnet', 'vit'
     parser.add_argument('--encoder', type=str, default='resnet')
     parser.add_argument('--greene', type=bool, default=True)
     # Possible values of treatment are 'odd-even', 'noisenet'
-    parser.add_argument('--treatment', type=str, default="noisenet")
+    parser.add_argument('--treatment', type=str, default="odd-even")
 
     args = parser.parse_args()
 
