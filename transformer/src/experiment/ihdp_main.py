@@ -164,6 +164,8 @@ def create_treatment_values(x, y, treatment="noisenet"):
         return noisenet_treatment(x)
     elif treatment == "odd-even":
         return odd_even_treatment(y)
+    elif treatment == "pixel-count":
+        return pixel_count_treatment(x)
 
 
 def create_targets(y):
@@ -231,7 +233,7 @@ def main():
     # Possible values of encoder are 'fc', 'resnet', 'vit'
     parser.add_argument('--encoder', type=str, default='resnet')
     parser.add_argument('--greene', type=bool, default=True)
-    # Possible values of treatment are 'odd-even', 'noisenet'
+    # Possible values of treatment are 'odd-even', 'noisenet', 'pixel-count'
     parser.add_argument('--treatment', type=str, default="odd-even")
 
     args = parser.parse_args()

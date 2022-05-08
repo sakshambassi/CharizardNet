@@ -34,7 +34,6 @@ def get_estimate(q_t0, q_t1, g, t, y_dragon, index, eps, truncate_level=0.01):
     """
     getting the back door adjustment & TMLE estimation
     """
-
     psi_n = psi_naive(q_t0, q_t1, g, t, y_dragon, truncate_level=truncate_level)
     psi_tmle, psi_tmle_std, eps_hat, initial_loss, final_loss, g_loss = psi_tmle_cont_outcome(q_t0, q_t1, g, t,
                                                                                               y_dragon,
