@@ -167,18 +167,31 @@ def create_treatment_values(x, y, treatment="noisenet"):
     elif treatment == "pixel-count":
         return pixel_count_treatment(x)
 
+##  old code
+# def create_targets(y):
+#     is_prime = lambda value: value in {2, 3, 4, 7}
+#     return np.array([int(is_prime(value)) for value in y])
 
-def create_targets(y):
-    is_prime = lambda value: value in {2, 3, 4, 7}
-    return np.array([int(is_prime(value)) for value in y])
-
+def create_targets(x, t):
+    y1_arr = noisenet(x, 'y1')
+    y0_arr = noisenet(x, 'y0')
+    y_true = t * y1_arr + (1-t)*y0_arr
+    return y_true
 
 def run_mnist(args: argparse, output_dir: str):
     mnist = tf.keras.datasets.mnist
     (x_train, train_labels), (x_test, test_labels) = mnist.load_data()
 
-    y_train = create_targets(train_labels)
-    y_test = create_targets(test_labels)
+    ## old code
+    # y_train = create_targets(train_labels)
+    # y_test = create_targets(test_labels)
+
+    t_train = create_treatment_values(x_train, train_labels, args.treatment)
+    t_test = create_treatment_values(x_test, test_labels, args.treatment)
+
+    ## new code
+    y_train = create_targets(x_train, t_train)
+    y_test = create_targets(x_test, t_test)
 
     if args.dry_run:
         train_labels = train_labels[:args.dry_run_val]
@@ -188,8 +201,7 @@ def run_mnist(args: argparse, output_dir: str):
         x_test = x_test[:args.dry_run_val]
         y_test = y_test[:args.dry_run_val]
 
-    t_train = create_treatment_values(x_train, train_labels, args.treatment)
-    t_test = create_treatment_values(x_test, test_labels, args.treatment)
+    
 
     encoder = get_encoder(args.encoder)
 
@@ -225,7 +237,7 @@ def main():
     parser.add_argument('--data-base-dir', type=str, default="../dat/ihdp/csv")
     parser.add_argument('--output-base-dir', type=str, default="../result/ihdp")
     parser.add_argument('--dry-run', type=bool, default=False)
-    parser.add_argument('--dry-run-val', type=int, default=10000)
+    parser.add_argument('--dry-run-val', type=int, default=10)
     parser.add_argument('--ratio', type=float, default=1.)
     parser.add_argument('--batch-size', type=int, default=32)
     parser.add_argument('--epochs-adam', type=int, default=100)

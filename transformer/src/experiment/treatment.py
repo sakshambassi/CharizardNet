@@ -22,9 +22,14 @@ def pixel_count_treatment(x):
     return value.numpy()
 
 
-def noisenet_treatment(x):
-    network = NoiseNet()
-    network.load_state_dict(torch.load('model.pth'))
+def noisenet(x, y1_or_y0):
+    if y1_or_y0 == 'y1':
+        network = NoiseNet_y1()
+        network.load_state_dict(torch.load('y_1_model.pth'))
+    elif y1_or_yo == 'y0':
+        network = NoiseNet_y0()
+        network.load_state_dict(torch.load('y_0_model.pth'))
+    
     network.eval()
 
     # x should be of shape torch.Size([_, 1, 28, 28])
@@ -35,7 +40,7 @@ def noisenet_treatment(x):
     log_outs, _ = torch.max(output, dim=1)
     # bound the values of log_outs between [0.1, 0.9] so that in Bernoulli all points get chance of treatment and not
     # treatment
-    log_outs = ((log_outs - torch.min(log_outs)) / (torch.max(log_outs) - torch.min(log_outs))) * 0.8 + 0.1
+    log_outs = ((log_outs - torch.min(log_outs)) / (torch.max(log_outs) - torch.min(log_outs)))
     log_outs = log_outs.detach().numpy()
     value = tf.compat.v1.distributions.Bernoulli(probs=log_outs).sample(sample_shape=1)
     value = tf.squeeze(value)
