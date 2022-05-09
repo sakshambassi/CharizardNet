@@ -48,7 +48,7 @@ def _split_output(yt_hat, t, y, x):
         np.take(g, np.where(t.reshape(-1, ) == 0)).mean())
     print(var)
 
-    acc = get_accuracy(t, q_t0, q_t1, y)
+    acc = outcome_accuracy(t, q_t0, q_t1, y)
     print(f"Accuracy: {acc}")
     ate = average_treatment_effect(q_t0, q_t1)
     print(f"Average treatment effect: {ate}")
