@@ -1,4 +1,4 @@
-from noisenet import NoiseNet
+from noisenet import *
 import torch
 import tensorflow as tf
 import numpy as np
@@ -26,7 +26,7 @@ def noisenet(x, y1_or_y0):
     if y1_or_y0 == 'y1':
         network = NoiseNet_y1()
         network.load_state_dict(torch.load('y_1_model.pth'))
-    elif y1_or_yo == 'y0':
+    elif y1_or_y0 == 'y0':
         network = NoiseNet_y0()
         network.load_state_dict(torch.load('y_0_model.pth'))
     

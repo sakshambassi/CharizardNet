@@ -16,7 +16,6 @@ from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, Termina
 from metrics import *
 from treatment import *
 import time
-from noisenet import NoiseNet
 import torch
 
 from encoder import *
@@ -200,6 +199,8 @@ def run_mnist(args: argparse, output_dir: str):
         y_train = y_train[:args.dry_run_val]
         x_test = x_test[:args.dry_run_val]
         y_test = y_test[:args.dry_run_val]
+        t_train = t_train[:args.dry_run_val]
+        t_test = t_test[:args.dry_run_val]
 
     
 
@@ -236,7 +237,7 @@ def main():
     parser.add_argument('--knob', type=str, default='dragonnet')
     parser.add_argument('--data-base-dir', type=str, default="../dat/ihdp/csv")
     parser.add_argument('--output-base-dir', type=str, default="../result/ihdp")
-    parser.add_argument('--dry-run', type=bool, default=False)
+    parser.add_argument('--dry-run', type=bool, default=True)
     parser.add_argument('--dry-run-val', type=int, default=10)
     parser.add_argument('--ratio', type=float, default=1.)
     parser.add_argument('--batch-size', type=int, default=32)
